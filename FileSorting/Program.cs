@@ -29,6 +29,7 @@ namespace FileSorting
 
         private static void MergeFilesAsync(List<string> filePaths, string resultFilePath)
         {
+            //initialize a reader for each file
             var readers = new List<StreamReader>();
 
             foreach(var filepath in filePaths)
@@ -37,16 +38,21 @@ namespace FileSorting
             }
 
             var writer = new StreamWriter(resultFilePath);
+
+            //initialize a structure with a reader and a newly read line from that reader
             var all = readers.Select((reader, index) => (reader, reader.ReadLine())).ToList();
 
             while (all.Count > 0)
             {
+                //sort by string line
                 all.Sort(CustomComparison);
 
                 var el = all.First();
 
+                //save the minimal element to the result file
                 writer.WriteLine(el.Item2);
                 
+                //read a new line from a reader or remove it if there are no more lines
                 if (el.reader.EndOfStream)
                 {
                     all.Remove(el);
@@ -70,7 +76,7 @@ namespace FileSorting
 
             while (!reader.EndOfStream)
             {
-                var chunkList = ReadChunk(reader);
+                var chunkList = ReadChunk(reader, _chunkSizeLimit);
 
                 chunkList.Sort(CustomComparison);
 
@@ -86,12 +92,18 @@ namespace FileSorting
             return resultFilePaths;
         }
 
-        private static List<string> ReadChunk(StreamReader reader)
+        /// <summary>
+        /// Reads from a StreamReader a chunk of data of specific size and returns as list of lines
+        /// </summary>
+        /// <param name="reader">StreamReader to read from</param>
+        /// <param name="chunkSizeLimit">Approximate chunk size in bytes</param>
+        /// <returns>List of lines read</returns>
+        private static List<string> ReadChunk(StreamReader reader, int chunkSizeLimit)
         {
             var chunkList = new List<string>();
             int chunkSize = 0;
 
-            while (!reader.EndOfStream && chunkSize < _chunkSizeLimit)
+            while (!reader.EndOfStream && chunkSize < chunkSizeLimit)
             {
                 var line = reader.ReadLine();
                 chunkSize += line.Length + 2;//add 2 for \r\n
@@ -101,6 +113,9 @@ namespace FileSorting
             return chunkList;
         }
 
+        /// <summary>
+        /// Compares two string of format "XXX.AAA" first by "AAA" part, then by XXX
+        /// </summary>
         private static int CustomComparison(string a, string b)
         {
             (var aN, var aS) = ParseNumberAndString(a);
@@ -120,11 +135,17 @@ namespace FileSorting
             }
         }
 
+        /// <summary>
+        /// Compares two structures by their second(string) part
+        /// </summary>
         private static int CustomComparison<T>((T, string) a, (T, string) b)
         {
             return CustomComparison(a.Item2, b.Item2);
         }
 
+        /// <summary>
+        /// Parses string of format "XXX.AAA" into number XXX and string "AAA"
+        /// </summary>
         private static (int, string) ParseNumberAndString(string s)
         {
             var dotIndex = s.IndexOf('.');
